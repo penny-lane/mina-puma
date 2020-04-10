@@ -17,6 +17,23 @@ namespace :puma do
   set :pumactl_socket, -> { "#{fetch(:shared_path)}/tmp/sockets/pumactl.sock" }
   set :puma_root_path, -> { fetch(:current_path) }
 
+  desc 'Start puma wuth sleep because during usual start Ubuntu kills the puma process after ssh-session of mina closed'
+  task :custom_start => :remote_environment do
+    command %[
+      if [ -e '#{fetch(:pumactl_socket)}' ]; then
+        echo 'Puma is already running!';
+      else
+        if [ -e '#{fetch(:puma_config)}' ]; then
+          cd #{fetch(:puma_root_path)} && #{fetch(:puma_cmd)} -q -d -e #{fetch(:puma_env)} -C #{fetch(:puma_config)}
+          sleep 1
+        else
+          echo 'Puma config is required'
+          exit 1
+        fi
+      fi
+    ]
+  end
+
   desc 'Start puma'
   task start: :remote_environment do
     puma_port_option = "-p #{fetch(:puma_port)}" if set?(:puma_port)
